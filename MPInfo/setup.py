@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='MPInfo',
-    version='0.1.0',
+    version='0.2.0',
     author='Robert Day',
     author_email='rkd@rkd.me.uk',
     packages=['mpinfo'],

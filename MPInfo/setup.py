@@ -11,5 +11,5 @@ setup(
     license='LICENSE.txt',
     description='Utilities to retrieve details about an United Kingdom MP from http://parliament.uk.',
     long_description=open('README.txt').read(),
-    install_requires=[],
+    install_requires=['beautifulsoup4'],
 )

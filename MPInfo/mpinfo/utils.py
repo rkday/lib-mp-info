@@ -2,6 +2,7 @@
 import json
 import urllib
 import re
+from bs4 import BeautifulSoup
 from classes import MPDetails
 
 def get_mp_from_postcode(postcode):
@@ -20,15 +21,12 @@ def get_mp_from_postcode(postcode):
                 "&key=CqiGfBD4nmmDAFMRR8ETJ6jY" % postcode))
 
     bio_data = urllib.urlopen(parsed_data["member_biography_url"]).read()
-    prog = re.compile("<strong>Constituency</strong>.*?<p>(.*?)</p>", 
-                        flags=re.DOTALL)
-    prog_wm = re.compile("<strong>Westminster</strong>.*?<p>(.*?)</p>", 
-                        flags=re.DOTALL)
-    prog_sc = re.compile("<h4>Select committees</h4>.*?<p>(.*?)</p>", 
-                        flags=re.DOTALL)
-    constituency_details = get_details(prog, bio_data)
-    parliamentary_details = get_details(prog_wm, bio_data)
-    committee_details = prettify_block(prog_sc.search(bio_data).group(1))
+    soup = BeautifulSoup(bio_data)
+    raw_westminster_details = [x for x in soup.find('div', id="biography-mp").findAll('p', recursive=False)[0].get_text().replace("\r", " ").replace("\n", "  ").split('  ') if len(x) > 1]
+    raw_constituency_details = [x for x in soup.find('div', id="biography-mp").findAll('p', recursive=False)[1].get_text().replace("\r", " ").replace("\n", "  ").split('  ') if len(x) > 1]
+    constituency_details = get_details(raw_constituency_details)
+    parliamentary_details = get_details(raw_westminster_details)
+    committee_details = soup.find('div', id="biography-mp").findAll('p', recursive=False)[3].get_text()
 
     mp.name = parsed_data["member_name"]
     mp.party = parsed_data["member_party"]
@@ -46,27 +44,18 @@ def get_mp_from_postcode(postcode):
         mp.government_position = twfy_data['office'][0]['position']
     return mp
 
-def prettify_block(data):
-    details = re.sub("<.*?>", "", data)
-    details = re.sub("\n[ ]+", "\n", details)
-    details = re.sub("\r", "", details)
-    details = re.sub("^\s+", "", details)
-    details = re.sub("\s+$", "", details)
-    return details
-
-def get_details(regexp, data):
-    match_obj = regexp.search(data)
-    details_dict = {'fax': None, 'tel': None, 'email': None, 'address': None}
-    details = prettify_block(match_obj.group(1))
-    for line in match_obj.group(1).split("\n"):
+def get_details(data_list):
+    details_dict = {'fax': None, 'tel': None, 'email': None, 'address': None, 'website': None}
+    for line in data_list:
         if "Tel:" in line:
             details_dict['tel'] = re.search("([0-9][-0-9 ]+)", line).group(1)
         elif "Fax:" in line:
             details_dict['fax'] = re.search("([0-9][-0-9 ]+)", line).group(1)
-        elif "mailto" in line:
-            details_dict['email'] = re.search("mailto:(.*?)\"", line).group(1)
-    for line in details.split("\n"):
-        if "," in line:
+        elif "@" in line:
+            details_dict['email'] = line
+        elif "www" in line:
+            details_dict['website'] = line
+        elif "," in line:
             details_dict['address'] = line
     return details_dict
 
